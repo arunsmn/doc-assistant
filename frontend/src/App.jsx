@@ -1,122 +1,112 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import Sidebar from "./components/Sidebar";
+import ChatArea from "./components/ChatArea";
+import ChatInput from "./components/ChatInput";
+import { useChat } from "./hooks/useChat";
 
-function App() {
-  const [count, setCount] = useState(0)
+export default function App() {
+  const {
+    documents,
+    activeDocument,
+    messages,
+    isUploading,
+    isThinking,
+    error,
+    handleUpload,
+    handleSend,
+    switchDocument,
+  } = useChat();
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <div style={styles.app}>
+      <style>{`
+        @keyframes fadeSlideUp {
+          from { opacity: 0; transform: translateY(8px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
 
-      <div className="ticks"></div>
+      <Sidebar
+        documents={documents}
+        activeDocument={activeDocument}
+        onUpload={handleUpload}
+        onSwitch={switchDocument}
+        isUploading={isUploading}
+      />
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
+      <div style={styles.main}>
+        {/* Header */}
+        <div style={styles.header}>
+          <div style={styles.headerTitle}>
+            {activeDocument ? activeDocument.filename : "DocMind"}
+          </div>
+          {activeDocument && (
+            <div style={styles.headerMeta}>
+              {activeDocument.pages} pages · {activeDocument.chunks} chunks
+              indexed
+            </div>
+          )}
         </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+        {/* Error banner */}
+        {error && <div style={styles.errorBanner}>⚠ {error}</div>}
+
+        <ChatArea
+          messages={messages}
+          isThinking={isThinking}
+          activeDocument={activeDocument}
+        />
+
+        <ChatInput
+          onSend={handleSend}
+          isThinking={isThinking}
+          disabled={!activeDocument}
+        />
+      </div>
+    </div>
+  );
 }
 
-export default App
+const styles = {
+  app: {
+    display: "flex",
+    height: "100vh",
+    overflow: "hidden",
+    background: "var(--bg-base)",
+  },
+  main: {
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    overflow: "hidden",
+    minWidth: 0,
+  },
+  header: {
+    padding: "16px 24px",
+    borderBottom: "1px solid var(--border)",
+    background: "var(--bg-surface)",
+    display: "flex",
+    alignItems: "baseline",
+    gap: "12px",
+  },
+  headerTitle: {
+    fontFamily: "var(--font-serif)",
+    fontSize: "17px",
+    color: "var(--text-primary)",
+    letterSpacing: "-0.01em",
+  },
+  headerMeta: {
+    fontSize: "12px",
+    fontFamily: "var(--font-mono)",
+    color: "var(--text-tertiary)",
+  },
+  errorBanner: {
+    padding: "10px 24px",
+    background: "rgba(232, 85, 85, 0.1)",
+    borderBottom: "1px solid rgba(232, 85, 85, 0.2)",
+    color: "var(--reject-color)",
+    fontSize: "13px",
+  },
+};
