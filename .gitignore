@@ -16,3 +16,8 @@ Thumbs.db
 
 # Uploaded user files
 backend/uploaded_files/
+
+# Docker
+**/__pycache__/
+*.pyc
+.dockerignore
