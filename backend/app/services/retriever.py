@@ -18,15 +18,6 @@ def get_llm():
 
 
 def format_chat_history(chat_history: list[tuple[str, str]]) -> list:
-    """
-    Converts our API's tuple format into LangChain message objects.
-
-    Our API receives:  [("what is X?", "X is ..."), ("tell me more", "...")]
-    LangChain needs:   [HumanMessage("what is X?"), AIMessage("X is ..."), ...]
-
-    We keep tuples in the API because they're simpler to send over JSON.
-    We convert here, at the boundary, right before LangChain needs them.
-    """
     messages = []
     for human, assistant in chat_history:
         messages.append(HumanMessage(content=human))
@@ -34,51 +25,62 @@ def format_chat_history(chat_history: list[tuple[str, str]]) -> list:
     return messages
 
 
-def build_chain(retriever):
+def build_chain(retriever, has_history: bool):
     """
-    Builds the two-step conversational RAG chain.
-    Separated into its own function so it's easy to test and reason about.
+    When there's no chat history, skip the rephrase step entirely.
+    The rephrase step only helps with follow-up questions like
+    "tell me more about that" — it adds no value on the first question
+    and can confuse the LLM when there's nothing to rephrase from.
     """
     llm = get_llm()
 
-    # ── Step 1: History-aware retriever ──────────────────────────────────────
-    # Problem this solves: if the user asks "what about its pricing?" as a
-    # follow-up, the retriever has no idea what "it" refers to.
-    # This prompt tells the LLM to rewrite the question using chat history
-    # into a standalone question before hitting Chroma.
-    rephrase_prompt = ChatPromptTemplate.from_messages(
-        [
-            MessagesPlaceholder("chat_history"),
-            ("human", "{input}"),
-            (
-                "human",
+    if has_history:
+        rephrase_prompt = ChatPromptTemplate.from_messages(
+            [
+                MessagesPlaceholder("chat_history"),
+                ("human", "{input}"),
                 (
-                    "Given the conversation above, rephrase my latest question "
-                    "into a standalone question that contains all necessary context. "
-                    "Return only the rephrased question, nothing else."
+                    "human",
+                    (
+                        "Given the conversation above, rephrase my latest question "
+                        "into a standalone question that contains all necessary context. "
+                        "Return only the rephrased question, nothing else."
+                    ),
                 ),
-            ),
-        ]
-    )
+            ]
+        )
+        active_retriever = create_history_aware_retriever(
+            llm, retriever, rephrase_prompt
+        )
+    else:
+        # No history — use the retriever as-is, no rephrasing needed
+        active_retriever = retriever
 
-    history_aware_retriever = create_history_aware_retriever(
-        llm, retriever, rephrase_prompt
-    )
-
-    # ── Step 2: Answer generation ─────────────────────────────────────────────
-    # Takes the retrieved chunks and generates a grounded answer.
-    # "grounded" means: only answer from the provided context, don't hallucinate.
+    # Looser prompt — allows synthesis across chunks, not just direct matching
+    # The key change: "based on" instead of "ONLY" — allows the LLM to
+    # reason across multiple chunks to answer summary questions
     answer_prompt = ChatPromptTemplate.from_messages(
         [
             (
                 "system",
                 (
-                    "You are a helpful document assistant. "
-                    "Answer the user's question using ONLY the context below. "
-                    "If the answer is not in the context, say "
-                    "'I could not find this information in the document.' "
-                    "Do not make up information.\n\n"
-                    "Context:\n{context}"
+                    "You are an expert document analyst. "
+                    "Your job is to answer questions about the uploaded document accurately and helpfully.\n\n"
+                    "DOCUMENT CONTEXT (extracted from the uploaded document):\n{context}\n\n"
+                    "INSTRUCTIONS:\n"
+                    "1. Read the document context carefully\n"
+                    "2. Think about what the question is really asking\n"
+                    "3. Use the conversation history to understand follow-up questions\n"
+                    "4. Answer based ONLY on what the document says\n\n"
+                    "RULES:\n"
+                    "- If the document clearly answers the question → give a direct, well-structured answer\n"
+                    "- If the document partially answers the question → share what you found and clearly state what is missing\n"
+                    "- If the document does not answer the question at all → say 'The document does not contain information about this'\n"
+                    "- Never make up facts or guess beyond what the document says\n"
+                    "- Match your answer length to the question — short questions get short answers\n"
+                    "- If listing multiple points, use a numbered list\n"
+                    "- If quoting the document directly, use quotation marks\n\n"
+                    "Think step by step, then give your answer."
                 ),
             ),
             MessagesPlaceholder("chat_history"),
@@ -86,26 +88,20 @@ def build_chain(retriever):
         ]
     )
 
-    # create_stuff_documents_chain "stuffs" all retrieved chunks
-    # into the {context} slot in the prompt above
     answer_chain = create_stuff_documents_chain(llm, answer_prompt)
-
-    # Combine both steps into one chain
-    return create_retrieval_chain(history_aware_retriever, answer_chain)
+    return create_retrieval_chain(active_retriever, answer_chain)
 
 
 def query_document(
     question: str, collection_name: str, chat_history: list[tuple[str, str]] = []
 ) -> dict:
-    """
-    Full query pipeline with chat history, source citations, and retry logic.
-    """
     vector_store = get_vector_store(collection_name)
     retriever = vector_store.as_retriever(search_kwargs={"k": settings.top_k})
-    chain = build_chain(retriever)
+
+    # Pass whether we have history so build_chain can decide
+    chain = build_chain(retriever, has_history=len(chat_history) > 0)
     formatted_history = format_chat_history(chat_history)
 
-    # Retry logic for Gemini rate limits (free tier = 429 errors)
     for attempt in range(3):
         try:
             result = chain.invoke(
@@ -120,7 +116,7 @@ def query_document(
             else:
                 raise e
 
-    # Extract and deduplicate source pages for citations
+    # Extract and deduplicate sources
     sources = []
     seen = set()
     for doc in result.get("context", []):
