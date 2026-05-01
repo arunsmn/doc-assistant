@@ -3,6 +3,7 @@ import uuid
 import shutil
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from app.services.ingestion import ingest_document
+from app.evals.scorer import run_evaluation
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -38,3 +39,16 @@ async def upload_document(file: UploadFile = File(...)):
         "chunks_created": result["chunks_created"],
         "message": "Document ready for questions",
     }
+
+
+@router.post("/evaluate/{collection_name}")
+async def evaluate(collection_name: str):
+    """
+    Runs the full evaluation suite against a collection.
+    Takes 1-2 minutes depending on number of questions.
+    """
+    try:
+        report = run_evaluation(collection_name)
+        return report
+    except Exception as e:
+        raise HTTPException(500, f"Evaluation failed: {str(e)}")
