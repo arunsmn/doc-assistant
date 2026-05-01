@@ -13,7 +13,6 @@ def get_llm():
         model=settings.gemini_model,
         google_api_key=settings.google_api_key,
         temperature=0.3,
-        convert_system_message_to_human=True,
     )
 
 

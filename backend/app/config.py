@@ -16,7 +16,7 @@ class Settings(BaseSettings):
 
     # Chunking — we'll experiment with these in Phase 2
     chunk_size: int = 500
-    chunk_overlap: int = 50
+    chunk_overlap: int = 100
 
     # Retrieval
     top_k: int = 5

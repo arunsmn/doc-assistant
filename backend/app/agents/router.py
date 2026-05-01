@@ -1,6 +1,9 @@
+import re
+from typing import List, Tuple, Optional
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from app.config import settings
+from langchain_core.messages import HumanMessage, AIMessage
 
 # The three decisions the router can make
 ROUTE_RAG = "rag"
@@ -13,7 +16,6 @@ def get_llm():
         model=settings.gemini_model,
         google_api_key=settings.google_api_key,
         temperature=0,  # 0 = deterministic. We want consistent routing decisions.
-        convert_system_message_to_human=True,
     )
 
 
@@ -62,14 +64,22 @@ def route_query(question: str) -> str:
     llm = get_llm()
     chain = ROUTER_PROMPT | llm
 
-    response = chain.invoke({"question": question})
+    try:
+        response = chain.invoke({"question": question})
+    except Exception as e:
+        print(f"Router failed: {e}")
+        return ROUTE_RAG  # safest fallback
 
-    # .content extracts the string from the AIMessage object
-    decision = response.content.strip().lower()
+    # Normalize safely
+    raw = str(response.content).strip().lower()
+    raw = re.sub(r"[^\w\s]", "", raw)  # remove punctuation
+
+    # Take first token only (handles "rag\nexplanation")
+    decision = raw.split()[0] if raw else ""
 
     # Safety net — if Gemini returns something unexpected, default to RAG
     # Better to try retrieval than to wrongly reject a valid question
-    if decision not in [ROUTE_RAG, ROUTE_LLM, ROUTE_REJECT]:
+    if decision not in {ROUTE_RAG, ROUTE_LLM, ROUTE_REJECT}:
         print(f"Unexpected router response: '{decision}', defaulting to rag")
         return ROUTE_RAG
 
@@ -77,13 +87,15 @@ def route_query(question: str) -> str:
 
 
 def answer_general_question(
-    question: str, chat_history: list[tuple[str, str]] = []
+    question: str,
+    chat_history: Optional[List[Tuple[str, str]]] = None,
 ) -> str:
     """
     Used when the router decides ROUTE_LLM.
     Answers directly from Gemini's training knowledge — no document retrieval.
     """
-    from langchain_core.messages import HumanMessage, AIMessage
+    if chat_history is None:
+        chat_history = []
 
     llm = get_llm()
 
@@ -95,5 +107,9 @@ def answer_general_question(
 
     messages.append(HumanMessage(content=question))
 
-    response = llm.invoke(messages)
-    return response.content
+    try:
+        response = llm.invoke(messages)
+        return str(response.content)
+    except Exception as e:
+        print(f"LLM failed: {e}")
+        return "Sorry, something went wrong while generating the response."
