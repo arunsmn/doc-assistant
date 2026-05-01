@@ -13,3 +13,6 @@ frontend/.env
 # OS clutter
 .DS_Store
 Thumbs.db
+
+# Uploaded user files
+backend/uploaded_files/
