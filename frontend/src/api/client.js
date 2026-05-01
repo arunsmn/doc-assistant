@@ -3,8 +3,8 @@ import axios from "axios";
 // Single axios instance for the whole app.
 // If the backend URL ever changes, you change it in one place.
 const api = axios.create({
-  baseURL: "http://localhost:8000",
-  timeout: 60000, // 60s — LLM responses can be slow
+  baseURL: import.meta.env.VITE_API_URL || "http://localhost:8000",
+  timeout: 60000,
 });
 
 export const uploadDocument = async (file) => {

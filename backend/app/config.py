@@ -1,5 +1,5 @@
 from pydantic import field_validator
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -24,8 +24,8 @@ class Settings(BaseSettings):
     # Chroma
     chroma_persist_dir: str = "./chroma_db"
 
-    class Config:
-        env_file = ".env"
+    # Replaces the old inner Config class
+    model_config = SettingsConfigDict(env_file=".env")
 
 
 # Single instance imported everywhere
