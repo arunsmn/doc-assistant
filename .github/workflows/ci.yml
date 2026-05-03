@@ -41,9 +41,8 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     steps:
-      - name: Trigger Render deploy
-        run: |
-          curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+      - name: Railway auto-deploys from GitHub
+        run: echo "Railway deploys automatically on push to main — no hook needed"
 
   deploy-frontend:
     name: Deploy Frontend
