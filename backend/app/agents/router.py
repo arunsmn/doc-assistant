@@ -3,7 +3,8 @@ from typing import List, Tuple, Optional
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from app.config import settings
-from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+from datetime import date
 
 # The three decisions the router can make
 ROUTE_RAG = "rag"
@@ -86,6 +87,9 @@ def route_query(question: str) -> str:
     return decision
 
 
+from datetime import date
+
+
 def answer_general_question(
     question: str,
     chat_history: Optional[List[Tuple[str, str]]] = None,
@@ -99,8 +103,18 @@ def answer_general_question(
 
     llm = get_llm()
 
-    # Build message history so follow-ups work here too
-    messages = []
+    # Inject today's date so Gemini knows when "now" is
+    today = date.today().strftime("%B %d, %Y")
+    messages = [
+        SystemMessage(
+            content=(
+                f"You are a helpful assistant. "
+                f"Today's date is {today}. "
+                f"Use this when answering any time-sensitive questions."
+            )
+        )
+    ]
+
     for human, assistant in chat_history:
         messages.append(HumanMessage(content=human))
         messages.append(AIMessage(content=assistant))

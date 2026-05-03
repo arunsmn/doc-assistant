@@ -2,7 +2,7 @@
 
 A production-grade RAG (Retrieval-Augmented Generation) system that answers questions from your documents with source citations, conversational memory, and an intelligent agent layer that decides _how_ to answer before it answers.
 
-**Live demo:** `https://doc-assistant-three.vercel.app/` &nbsp;|&nbsp; **Backend API docs:** `https://doc-assistant-backend-ug4u.onrender.com`
+**Live demo:** `https://doc-assistant-three.vercel.app/` &nbsp;|&nbsp; **Backend API docs:** `https://doc-assistant-production.up.railway.app`
 
 ---
 
