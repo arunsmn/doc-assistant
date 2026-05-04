@@ -8,6 +8,7 @@ engine = create_async_engine(
     settings.database_url,
     pool_pre_ping=True,
     echo=False,  # set True to see SQL queries in terminal (useful for debugging)
+    connect_args={"ssl": False},  # handles Railway private network
 )
 
 # Session factory — creates database sessions on demand
