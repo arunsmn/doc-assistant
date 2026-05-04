@@ -1,5 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from app.agents.router import (
     route_query,
     answer_general_question,
@@ -8,6 +10,8 @@ from app.agents.router import (
     ROUTE_REJECT,
 )
 from app.services.retriever import query_document
+from app.database import get_db
+from app.models import Message, Document
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -18,7 +22,6 @@ class ChatRequest(BaseModel):
     chat_history: list[tuple[str, str]] = []
 
 
-# These messages are shown to the user in the frontend
 REJECT_MESSAGE = (
     "I'm a document assistant — I can only help with questions about "
     "your uploaded documents or general knowledge questions. "
@@ -27,40 +30,57 @@ REJECT_MESSAGE = (
 
 
 @router.post("/")
-async def chat(request: ChatRequest):
+async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
     if not request.question.strip():
         raise HTTPException(400, "Question cannot be empty")
 
     try:
-        # ── Step 1: Route the query ───────────────────────────────────────
         route = route_query(request.question)
-        print(f"Query routed to: {route}")  # visible in your terminal logs
+        print(f"Query routed to: {route}")
 
-        # ── Step 2: Execute the right tool ───────────────────────────────
         if route == ROUTE_REJECT:
-            return {"answer": REJECT_MESSAGE, "sources": [], "route": ROUTE_REJECT}
+            answer = REJECT_MESSAGE
+            sources = []
 
         elif route == ROUTE_LLM:
             answer = answer_general_question(
                 question=request.question, chat_history=request.chat_history
             )
-            return {
-                "answer": answer,
-                "sources": [],  # no document sources for general questions
-                "route": ROUTE_LLM,
-            }
+            sources = []
 
-        else:  # ROUTE_RAG
+        else:
             result = query_document(
                 question=request.question,
                 collection_name=request.collection_name,
                 chat_history=request.chat_history,
             )
-            return {
-                "answer": result["answer"],
-                "sources": result["sources"],
-                "route": ROUTE_RAG,  # frontend can use this to show/hide source cards
-            }
+            answer = result["answer"]
+            sources = result["sources"]
+
+        # Find the document record
+        doc_result = await db.execute(
+            select(Document).where(Document.collection_name == request.collection_name)
+        )
+        document = doc_result.scalar_one_or_none()
+
+        # Save both the user message and assistant response to PostgreSQL
+        if document:
+            user_msg = Message(
+                document_id=document.id,
+                role="user",
+                content=request.question,
+            )
+            assistant_msg = Message(
+                document_id=document.id,
+                role="assistant",
+                content=answer,
+                route=route,
+                sources=sources,
+            )
+            db.add(user_msg)
+            db.add(assistant_msg)
+
+        return {"answer": answer, "sources": sources, "route": route}
 
     except Exception as e:
         raise HTTPException(500, f"Chat failed: {str(e)}")

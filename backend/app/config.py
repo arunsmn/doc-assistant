@@ -14,6 +14,9 @@ class Settings(BaseSettings):
 
     gemini_model: str = "gemini-2.5-flash"
 
+    # Database
+    database_url: str = "postgresql+asyncpg://localhost/docmind"
+
     # Chunking — we'll experiment with these in Phase 2
     chunk_size: int = 500
     chunk_overlap: int = 100

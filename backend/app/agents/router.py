@@ -3,8 +3,7 @@ from typing import List, Tuple, Optional
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from app.config import settings
-from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
-from datetime import date
+from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
 
 # The three decisions the router can make
 ROUTE_RAG = "rag"
@@ -105,7 +104,7 @@ def answer_general_question(
 
     # Inject today's date so Gemini knows when "now" is
     today = date.today().strftime("%B %d, %Y")
-    messages = [
+    messages: List[BaseMessage] = [
         SystemMessage(
             content=(
                 f"You are a helpful assistant. "
