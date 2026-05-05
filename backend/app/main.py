@@ -3,13 +3,22 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.routes import documents, chat
 from app.database import engine, Base
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Create tables on startup if they don't exist
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    # Try to create tables but don't crash if DB is unavailable
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("==> Database tables ready")
+    except Exception as e:
+        logger.error(f"==> Database connection failed: {e}")
+        logger.error("==> Starting without database — uploads and chat will fail")
+
     print("==> DocMind API starting up")
     yield
     print("==> DocMind API shutting down")
