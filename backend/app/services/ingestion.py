@@ -16,7 +16,8 @@ def get_embeddings():
     """
     assert settings.google_api_key, "GOOGLE_API_KEY is required"
     return GoogleGenerativeAIEmbeddings(
-        model="models/embedding-001", google_api_key=SecretStr(settings.google_api_key)
+        model="models/gemini-embedding-001",
+        google_api_key=SecretStr(settings.google_api_key),
     )
 
 
