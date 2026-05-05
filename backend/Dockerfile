@@ -13,4 +13,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 EXPOSE 8000
-CMD ["sh", "-c", "echo 'Starting uvicorn on port 8000' && uvicorn test_main:app --host 0.0.0.0 --port 8000 --log-level debug"]
+ENV PYTHONUNBUFFERED=1
+CMD ["uvicorn", "test_main:app", "--host", "0.0.0.0", "--port", "8000", "--log-level", "debug"]
