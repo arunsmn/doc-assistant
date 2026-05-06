@@ -2,13 +2,13 @@ import os
 import pdfplumber
 from langchain.schema import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import Chroma
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from pydantic import SecretStr
 from app.config import settings
 
 
 def get_embeddings():
+    from langchain_google_genai import GoogleGenerativeAIEmbeddings
+
     """
     Uses Gemini embeddings API instead of local sentence-transformers.
     No model download, no memory overhead — API call instead.
@@ -22,6 +22,8 @@ def get_embeddings():
 
 
 def get_vector_store(collection_name: str):
+    from langchain_community.vectorstores import Chroma
+
     return Chroma(
         collection_name=collection_name,
         embedding_function=get_embeddings(),
