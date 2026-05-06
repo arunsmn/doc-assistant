@@ -23,10 +23,11 @@ filetype==1.2.0
 flatbuffers==25.12.19
 frozenlist==1.8.0
 fsspec==2026.4.0
-google-api-core==2.30.3
 google-api-python-client==2.195.0
 google-auth==2.50.0
 google-auth-httplib2==0.3.1
+google-generativeai
+langchain-google-genai
 googleapis-common-protos==1.74.0
 greenlet==3.5.0
 grpcio==1.80.0
@@ -51,7 +52,6 @@ kubernetes==35.0.0
 langchain==0.3.25
 langchain-community==0.3.24
 langchain-core==0.3.84
-langchain-google-genai==2.1.4
 langchain-protocol==0.0.14
 langchain-text-splitters==0.3.8
 langsmith==0.3.45
@@ -82,7 +82,6 @@ pdfplumber==0.11.9
 pillow==12.2.0
 pluggy==1.6.0
 propcache==0.4.1
-proto-plus==1.27.2
 protobuf==5.29.6
 psycopg2-binary==2.9.12
 pyasn1==0.6.3
