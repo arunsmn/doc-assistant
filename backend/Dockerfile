@@ -17,5 +17,5 @@ COPY . .
 
 ENV PYTHONUNBUFFERED=1
 
-EXPOSE 8000
-CMD ["sh", "-c", "echo 'container starting...' && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --log-level debug"]
+EXPOSE 8080
+CMD ["sh", "-c", "echo PORT=$PORT && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080} --log-level debug"]
