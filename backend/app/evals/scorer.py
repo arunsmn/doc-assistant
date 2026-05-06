@@ -12,7 +12,6 @@ from app.agents.router import answer_general_question
 def get_llm():
     return ChatGoogleGenerativeAI(
         model=settings.gemini_model,
-        google_api_key=settings.google_api_key,
         temperature=0,
     )
 

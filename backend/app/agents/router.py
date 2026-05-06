@@ -14,7 +14,6 @@ ROUTE_REJECT = "reject"
 def get_llm():
     return ChatGoogleGenerativeAI(
         model=settings.gemini_model,
-        google_api_key=settings.google_api_key,
         temperature=0,  # 0 = deterministic. We want consistent routing decisions.
     )
 
