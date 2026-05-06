@@ -1,13 +1,16 @@
-FROM python:3.13-slim
+FROM python:3.11-slim
 
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
+    libgomp1 \
+    libstdc++6 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
+RUN pip install --no-cache-dir onnxruntime && python -c "import onnxruntime; print('onnxruntime ok')"
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
@@ -15,4 +18,4 @@ COPY . .
 ENV PYTHONUNBUFFERED=1
 
 EXPOSE 8000
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --log-level debug"]
+CMD ["sh", "-c", "echo 'container starting...' && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --log-level debug"]
