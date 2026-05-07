@@ -6,6 +6,9 @@ class Settings(BaseSettings):
     # LLM
     google_api_key: str | None = None
 
+    # Sentry
+    sentry_dsn: str = ""  # empty string = disabled locally if not set
+
     @field_validator("google_api_key")
     def check_key(cls, v):
         if not v:
