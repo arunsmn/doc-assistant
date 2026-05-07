@@ -68,9 +68,3 @@ app.include_router(chat.router)
 @app.get("/")
 def health_check():
     return {"status": "ok", "message": "Doc Assistant API is running"}
-
-
-# Test endpoint — remove after verifying Sentry works
-@app.get("/sentry-test")
-def sentry_test():
-    raise ValueError("Sentry test error — if you see this in Sentry, it works!")
