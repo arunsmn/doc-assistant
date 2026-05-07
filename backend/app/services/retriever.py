@@ -1,4 +1,6 @@
+import os
 import time
+import logging
 from langchain.chains import create_history_aware_retriever, create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
@@ -7,8 +9,11 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from app.services.ingestion import get_vector_store
 from app.config import settings
 
+logger = logging.getLogger(__name__)
+
 
 def get_llm():
+    os.environ["GOOGLE_API_KEY"] = settings.google_api_key or ""
     return ChatGoogleGenerativeAI(
         model=settings.gemini_model,
         temperature=0.3,
@@ -109,7 +114,10 @@ def query_document(
         except Exception as e:
             if "429" in str(e) and attempt < 2:
                 wait = 30 * (attempt + 1)
-                print(f"Rate limited. Retrying in {wait}s...")
+                logger.warning(
+                    "Rate limited by Gemini",
+                    extra={"attempt": attempt + 1, "wait_seconds": wait},
+                )
                 time.sleep(wait)
             else:
                 raise e

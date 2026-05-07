@@ -1,9 +1,15 @@
+import os
 import re
+import logging
+from datetime import date
 from typing import List, Tuple, Optional
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
-from app.config import settings
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
+from pydantic import SecretStr
+from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 # The three decisions the router can make
 ROUTE_RAG = "rag"
@@ -12,9 +18,10 @@ ROUTE_REJECT = "reject"
 
 
 def get_llm():
+    os.environ["GOOGLE_API_KEY"] = settings.google_api_key or ""
     return ChatGoogleGenerativeAI(
         model=settings.gemini_model,
-        temperature=0,  # 0 = deterministic. We want consistent routing decisions.
+        temperature=0,
     )
 
 
@@ -66,7 +73,7 @@ def route_query(question: str) -> str:
     try:
         response = chain.invoke({"question": question})
     except Exception as e:
-        print(f"Router failed: {e}")
+        logger.error("Router failed, defaulting to rag", exc_info=True)
         return ROUTE_RAG  # safest fallback
 
     # Normalize safely
@@ -79,13 +86,14 @@ def route_query(question: str) -> str:
     # Safety net — if Gemini returns something unexpected, default to RAG
     # Better to try retrieval than to wrongly reject a valid question
     if decision not in {ROUTE_RAG, ROUTE_LLM, ROUTE_REJECT}:
-        print(f"Unexpected router response: '{decision}', defaulting to rag")
+        logger.warning(
+            "Unexpected router response, defaulting to rag",
+            extra={"response": decision},
+        )
         return ROUTE_RAG
 
+    logger.info("Query routed", extra={"route": decision})
     return decision
-
-
-from datetime import date
 
 
 def answer_general_question(
@@ -123,5 +131,5 @@ def answer_general_question(
         response = llm.invoke(messages)
         return str(response.content)
     except Exception as e:
-        print(f"LLM failed: {e}")
+        logger.error("LLM answer failed", exc_info=True)
         return "Sorry, something went wrong while generating the response."

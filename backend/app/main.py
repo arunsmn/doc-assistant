@@ -1,10 +1,12 @@
+import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.routes import documents, chat
 from app.database import engine, Base
-import logging
+from app.logger import setup_logging
 
+setup_logging()
 logger = logging.getLogger(__name__)
 
 
@@ -16,12 +18,12 @@ async def lifespan(app: FastAPI):
             await conn.run_sync(Base.metadata.create_all)
         logger.info("==> Database tables ready")
     except Exception as e:
-        logger.error(f"==> Database connection failed: {e}")
+        logger.error(f"==> Database connection failed: {e}", exc_info=True)
         logger.error("==> Starting without database — uploads and chat will fail")
 
-    print("==> DocMind API starting up")
+    logger.info("DocMind API starting up")
     yield
-    print("==> DocMind API shutting down")
+    logger.info("DocMind API shutting down")
 
 
 app = FastAPI(title="Doc Assistant API", version="1.0.0", lifespan=lifespan)

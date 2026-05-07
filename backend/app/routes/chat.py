@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,6 +13,8 @@ from app.agents.router import (
 from app.services.retriever import query_document
 from app.database import get_db
 from app.models import Message, Document
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -36,7 +39,7 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
 
     try:
         route = route_query(request.question)
-        print(f"Query routed to: {route}")
+        logger.info("Query routed", extra={"route": route})
 
         if route == ROUTE_REJECT:
             answer = REJECT_MESSAGE
