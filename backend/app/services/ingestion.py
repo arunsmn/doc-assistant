@@ -1,24 +1,28 @@
 import os
+import logging
 import pdfplumber
 from langchain.schema import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pydantic import SecretStr
 from app.config import settings
 
+logger = logging.getLogger(__name__)
+
+_embeddings_instance = None
+
 
 def get_embeddings():
-    from langchain_google_genai import GoogleGenerativeAIEmbeddings
+    global _embeddings_instance
+    if _embeddings_instance is None:
+        from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
-    """
-    Uses Gemini embeddings API instead of local sentence-transformers.
-    No model download, no memory overhead — API call instead.
-    Free tier: 1500 requests/day which is more than enough for a portfolio project.
-    """
-    assert settings.google_api_key, "GOOGLE_API_KEY is required"
-    return GoogleGenerativeAIEmbeddings(
-        model="models/gemini-embedding-001",
-        google_api_key=SecretStr(settings.google_api_key),
-    )
+        os.environ["GOOGLE_API_KEY"] = settings.google_api_key or ""
+        logger.info("Loading Gemini embeddings model")
+        _embeddings_instance = GoogleGenerativeAIEmbeddings(
+            model="models/gemini-embedding-001",
+        )
+        logger.info("Gemini embeddings model ready")
+    return _embeddings_instance
 
 
 def get_vector_store(collection_name: str):
@@ -68,12 +72,19 @@ def extract_text_from_pdf(file_path: str) -> list[Document]:
 
 
 def ingest_document(file_path: str, collection_name: str) -> dict:
+    logger.info(
+        "Starting ingestion",
+        extra={"file": os.path.basename(file_path), "collection": collection_name},
+    )
+
     pages = extract_text_from_pdf(file_path)
 
     if not pages:
         raise ValueError(
             "No text could be extracted. The PDF may be scanned or image-based."
         )
+
+    logger.info("PDF extracted", extra={"pages": len(pages)})
 
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=settings.chunk_size,
@@ -82,8 +93,19 @@ def ingest_document(file_path: str, collection_name: str) -> dict:
     )
     chunks = splitter.split_documents(pages)
 
+    logger.info("Text chunked", extra={"chunks": len(chunks)})
+
     vector_store = get_vector_store(collection_name)
     vector_store.add_documents(chunks)
+
+    logger.info(
+        "Ingestion complete",
+        extra={
+            "pages": len(pages),
+            "chunks": len(chunks),
+            "collection": collection_name,
+        },
+    )
 
     return {
         "pages_loaded": len(pages),
