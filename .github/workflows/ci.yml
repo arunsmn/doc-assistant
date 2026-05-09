@@ -10,6 +10,7 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
+  # ── Job 1: Run tests ─────────────────────────────────────────────────────
   test:
     name: Run Evaluation Suite
     runs-on: ubuntu-latest
@@ -34,19 +35,33 @@ jobs:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: python -m pytest tests/ -v
 
-  deploy-backend:
-    name: Deploy Backend
+  # ── Job 2: Deploy to STAGING (automatic on every push to main) ───────────
+  deploy-staging:
+    name: Deploy to Staging
     needs: test
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     steps:
-      - name: Railway auto-deploys from GitHub
-        run: echo "Railway deploys automatically on push to main — no hook needed"
+      - name: Staging deploys automatically from GitHub
+        run: echo "Railway staging auto-deploys on push to main"
 
+  # ── Job 3: Deploy to PRODUCTION (manual trigger only) ────────────────────
+  deploy-production:
+    name: Deploy to Production
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment: production # requires manual approval in GitHub
+
+    steps:
+      - name: Production deploys automatically from GitHub
+        run: echo "Railway production auto-deploys on push to main"
+
+  # ── Job 4: Deploy frontend to Vercel ─────────────────────────────────────
   deploy-frontend:
     name: Deploy Frontend
-    needs: test
+    needs: deploy-production
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
