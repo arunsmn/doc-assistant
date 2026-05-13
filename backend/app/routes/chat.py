@@ -206,7 +206,9 @@ async def chat_stream(request: ChatRequest, db: AsyncSession = Depends(get_db)):
         generate(),
         media_type="text/event-stream",
         headers={
-            "Cache-Control": "no-cache",
+            "Cache-Control": "no-cache, no-transform",
             "X-Accel-Buffering": "no",
+            "X-Content-Type-Options": "nosniff",
+            "Connection": "keep-alive",
         },
     )
