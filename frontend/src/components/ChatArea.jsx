@@ -4,14 +4,31 @@ import TypingIndicator from "./TypingIndicator";
 
 export default function ChatArea({ messages, isThinking, activeDocument }) {
   const bottomRef = useRef(null);
+  const containerRef = useRef(null);
 
-  // Auto-scroll to latest message
+  const isNearBottom = () => {
+    const container = containerRef.current;
+    if (!container) return true;
+    // Consider "near bottom" if within 150px of the bottom
+    return (
+      container.scrollHeight - container.scrollTop - container.clientHeight <
+      150
+    );
+  };
+
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    // Only auto-scroll if user is already near the bottom
+    // This lets them scroll up to read without being dragged back down
+    if (isNearBottom()) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages, isThinking]);
 
+  const lastMessage = messages[messages.length - 1];
+  const showTyping = isThinking && lastMessage?.role === "user";
+
   return (
-    <div style={styles.container}>
+    <div ref={containerRef} style={styles.container}>
       {messages.length === 0 ? (
         <div style={styles.empty}>
           {activeDocument ? (
@@ -42,7 +59,7 @@ export default function ChatArea({ messages, isThinking, activeDocument }) {
           {messages.map((msg) => (
             <Message key={msg.id} message={msg} />
           ))}
-          {isThinking && <TypingIndicator />}
+          {showTyping && <TypingIndicator />}
           <div ref={bottomRef} />
         </div>
       )}

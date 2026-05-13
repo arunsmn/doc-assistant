@@ -6,7 +6,7 @@ const ROUTE_LABELS = {
   reject: { label: "Rejected", color: "var(--reject-color)" },
 };
 
-export default function Message({ message }) {
+export default function Message({ message, isStreaming }) {
   const isUser = message.role === "user";
   const routeInfo = message.route ? ROUTE_LABELS[message.route] : null;
 
@@ -35,7 +35,11 @@ export default function Message({ message }) {
 
         {/* Message bubble */}
         <div style={isUser ? styles.userBubble : styles.assistantBubble}>
-          <p style={styles.text}>{message.content}</p>
+          <p style={styles.text}>
+            {message.content}
+
+            {isStreaming && !isUser && <span style={styles.cursor} />}
+          </p>
         </div>
 
         {/* Source citations — only for RAG answers */}
@@ -100,5 +104,15 @@ const styles = {
     marginTop: "5px",
     fontSize: "11px",
     color: "var(--text-tertiary)",
+  },
+  cursor: {
+    display: "inline-block",
+    width: "7px",
+    height: "1.1em",
+    backgroundColor: "currentColor",
+    marginLeft: "2px",
+    verticalAlign: "text-bottom",
+    borderRadius: "1px",
+    animation: "blink 1s step-end infinite",
   },
 };
