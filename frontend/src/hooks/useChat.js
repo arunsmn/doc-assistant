@@ -1,5 +1,10 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { uploadDocument, sendMessageStream } from "../api/client";
+import {
+  uploadDocument,
+  sendMessageStream,
+  fetchDocuments,
+  fetchChatHistory,
+} from "../api/client";
 
 export function useChat() {
   const [documents, setDocuments] = useState([]);
@@ -15,6 +20,54 @@ export function useChat() {
   const assistantAddedRef = useRef(false);
   const pendingSourcesRef = useRef([]);
   const processQueueRef = useRef(null);
+
+  // Load documents when app starts
+  useEffect(() => {
+    const loadDocuments = async () => {
+      try {
+        const docs = await fetchDocuments();
+        const formatted = docs.map((doc) => ({
+          id: doc.collection_name,
+          filename: doc.filename,
+          collectionName: doc.collection_name,
+          pages: doc.pages,
+          chunks: doc.chunks,
+          uploadedAt: new Date(doc.uploaded_at),
+        }));
+        setDocuments(formatted);
+        // Auto-select the most recent document
+        if (formatted.length > 0) {
+          setActiveDocument(formatted[0]);
+        }
+      } catch (err) {
+        console.error("Failed to load documents:", err);
+      }
+    };
+    loadDocuments();
+  }, []); // empty array = runs once on mount
+
+  // Load chat history when active document changes
+  useEffect(() => {
+    if (!activeDocument) return;
+
+    const loadHistory = async () => {
+      try {
+        const history = await fetchChatHistory(activeDocument.collectionName);
+        const formatted = history.map((msg) => ({
+          id: msg.id,
+          role: msg.role,
+          content: msg.content,
+          route: msg.route,
+          sources: msg.sources || [],
+          timestamp: new Date(msg.timestamp),
+        }));
+        setMessages(formatted);
+      } catch (err) {
+        console.error("Failed to load chat history:", err);
+      }
+    };
+    loadHistory();
+  }, [activeDocument]); // runs when active document changes
 
   useEffect(() => {
     processQueueRef.current = () => {
@@ -158,7 +211,6 @@ export function useChat() {
 
   const switchDocument = useCallback((doc) => {
     setActiveDocument(doc);
-    setMessages([]);
     setError(null);
   }, []);
 

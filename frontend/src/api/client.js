@@ -112,3 +112,13 @@ export const sendMessageStream = (
     })
     .catch(onError);
 };
+
+export const fetchDocuments = async () => {
+  const response = await api.get("/documents/");
+  return response.data;
+};
+
+export const fetchChatHistory = async (collectionName) => {
+  const response = await api.get(`/chat/history/${collectionName}`);
+  return response.data;
+};
