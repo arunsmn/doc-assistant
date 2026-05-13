@@ -1,13 +1,15 @@
 import os
 import time
 import logging
+import json
 from langchain.chains import create_history_aware_retriever, create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 from app.services.ingestion import get_vector_store
 from app.config import settings
+from typing import Generator
 
 logger = logging.getLogger(__name__)
 
@@ -29,12 +31,6 @@ def format_chat_history(chat_history: list[tuple[str, str]]) -> list:
 
 
 def build_chain(retriever, has_history: bool):
-    """
-    When there's no chat history, skip the rephrase step entirely.
-    The rephrase step only helps with follow-up questions like
-    "tell me more about that" — it adds no value on the first question
-    and can confuse the LLM when there's nothing to rephrase from.
-    """
     llm = get_llm()
 
     if has_history:
@@ -56,12 +52,8 @@ def build_chain(retriever, has_history: bool):
             llm, retriever, rephrase_prompt
         )
     else:
-        # No history — use the retriever as-is, no rephrasing needed
         active_retriever = retriever
 
-    # Looser prompt — allows synthesis across chunks, not just direct matching
-    # The key change: "based on" instead of "ONLY" — allows the LLM to
-    # reason across multiple chunks to answer summary questions
     answer_prompt = ChatPromptTemplate.from_messages(
         [
             (
@@ -98,10 +90,10 @@ def build_chain(retriever, has_history: bool):
 def query_document(
     question: str, collection_name: str, chat_history: list[tuple[str, str]] = []
 ) -> dict:
+    """Standard non-streaming query — used by evaluation and non-streaming chat."""
     vector_store = get_vector_store(collection_name)
     retriever = vector_store.as_retriever(search_kwargs={"k": settings.top_k})
 
-    # Pass whether we have history so build_chain can decide
     chain = build_chain(retriever, has_history=len(chat_history) > 0)
     formatted_history = format_chat_history(chat_history)
 
@@ -122,7 +114,6 @@ def query_document(
             else:
                 raise e
 
-    # Extract and deduplicate sources
     sources = []
     seen = set()
     for doc in result.get("context", []):
@@ -140,3 +131,97 @@ def query_document(
             )
 
     return {"answer": result["answer"], "sources": sources}
+
+
+def stream_document_query(
+    question: str, collection_name: str, chat_history: list[tuple[str, str]] = []
+) -> Generator[str, None, None]:
+    """
+    Streaming version — yields SSE chunks as tokens arrive from Gemini.
+    Uses the Gemini SDK directly for streaming to bypass LangChain buffering.
+    Uses LangChain only for the retrieval step (vector search + rephrasing).
+    """
+    from google import genai as google_genai
+
+    vector_store = get_vector_store(collection_name)
+    retriever = vector_store.as_retriever(search_kwargs={"k": settings.top_k})
+    formatted_history = format_chat_history(chat_history)
+
+    # ── Step 1: Rephrase question if there's chat history ─────────────────
+    if len(chat_history) > 0:
+        rephrase_llm = get_llm()
+        rephrase_prompt = ChatPromptTemplate.from_messages(
+            [
+                MessagesPlaceholder("chat_history"),
+                ("human", "{input}"),
+                (
+                    "human",
+                    (
+                        "Given the conversation above, rephrase my latest question "
+                        "into a standalone question. Return only the rephrased question."
+                    ),
+                ),
+            ]
+        )
+        rephrase_chain = rephrase_prompt | rephrase_llm
+        rephrased = rephrase_chain.invoke(
+            {"input": question, "chat_history": formatted_history}
+        )
+        search_query = str(rephrased.content)
+    else:
+        search_query = question
+
+    # ── Step 2: Retrieve relevant chunks ──────────────────────────────────
+    docs = retriever.invoke(search_query)
+
+    # ── Step 3: Extract and send sources immediately ───────────────────────
+    sources = []
+    seen = set()
+    for doc in docs:
+        page = doc.metadata.get("page", "unknown")
+        source_file = doc.metadata.get("source_file", "unknown")
+        key = (source_file, page)
+        if key not in seen:
+            seen.add(key)
+            sources.append(
+                {
+                    "page": page,
+                    "source_file": source_file,
+                    "snippet": doc.page_content[:200],
+                }
+            )
+
+    yield f"data: {json.dumps({'type': 'sources', 'sources': sources})}\n\n"
+
+    # ── Step 4: Build prompt ───────────────────────────────────────────────
+    context = "\n\n".join(doc.page_content for doc in docs)
+
+    history_text = ""
+    for human, assistant in chat_history:
+        history_text += f"User: {human}\nAssistant: {assistant}\n"
+
+    prompt = (
+        f"You are an expert document analyst. "
+        f"Answer based ONLY on this document context:\n\n{context}\n\n"
+        f"CONVERSATION HISTORY:\n{history_text}\n"
+        f"RULES:\n"
+        f"- If clearly answered → give direct answer\n"
+        f"- If partially answered → share what you found and state what's missing\n"
+        f"- If not in document → say 'The document does not contain information about this'\n"
+        f"- Never make up facts\n"
+        f"Think step by step, then give your answer.\n\n"
+        f"QUESTION: {question}"
+    )
+
+    # ── Step 5: Stream tokens using Gemini SDK directly ────────────────────
+    # Bypasses LangChain which buffers the full response before yielding.
+    # The Gemini SDK streams tokens as they arrive from the API.
+    client = google_genai.Client(api_key=settings.google_api_key or "")
+
+    for chunk in client.models.generate_content_stream(
+        model=settings.gemini_model, contents=prompt
+    ):
+        if chunk.text:
+            yield f"data: {json.dumps({'type': 'token', 'content': chunk.text})}\n\n"
+
+    yield f"data: {json.dumps({'type': 'done', 'route': 'rag'})}\n\n"
