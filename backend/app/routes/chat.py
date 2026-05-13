@@ -212,3 +212,34 @@ async def chat_stream(request: ChatRequest, db: AsyncSession = Depends(get_db)):
             "Connection": "keep-alive",
         },
     )
+
+
+@router.get("/history/{collection_name}")
+async def get_history(collection_name: str, db: AsyncSession = Depends(get_db)):
+    """Returns all messages for a document in order."""
+    doc_result = await db.execute(
+        select(Document).where(Document.collection_name == collection_name)
+    )
+    document = doc_result.scalar_one_or_none()
+
+    if not document:
+        return []
+
+    msg_result = await db.execute(
+        select(Message)
+        .where(Message.document_id == document.id)
+        .order_by(Message.created_at)
+    )
+    messages = msg_result.scalars().all()
+
+    return [
+        {
+            "id": str(msg.id),
+            "role": msg.role,
+            "content": msg.content,
+            "route": msg.route,
+            "sources": msg.sources or [],
+            "timestamp": msg.created_at.isoformat(),
+        }
+        for msg in messages
+    ]
