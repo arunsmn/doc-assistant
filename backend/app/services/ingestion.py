@@ -1,7 +1,7 @@
 import os
 import logging
 import pdfplumber
-from langchain.schema import Document
+from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pydantic import SecretStr
 from app.config import settings
