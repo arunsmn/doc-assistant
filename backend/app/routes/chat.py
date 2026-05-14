@@ -1,6 +1,7 @@
 import logging
 import json
 import asyncio
+from app.agents.langgraph_agent import run_agent
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -90,9 +91,6 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
 
     except Exception as e:
         raise HTTPException(500, f"Chat failed: {str(e)}")
-
-
-import asyncio
 
 
 @router.post("/stream")
@@ -243,3 +241,61 @@ async def get_history(collection_name: str, db: AsyncSession = Depends(get_db)):
         }
         for msg in messages
     ]
+
+
+class AgentRequest(BaseModel):
+    question: str
+    collection_name: str
+    chat_history: list[tuple[str, str]] = []
+
+
+@router.post("/agent")
+async def agent_chat(request: AgentRequest, db: AsyncSession = Depends(get_db)):
+    """
+    LangGraph ReAct agent endpoint.
+    The agent reasons about which tools to use and can call
+    multiple tools in sequence to answer complex questions.
+    """
+    if not request.question.strip():
+        raise HTTPException(400, "Question cannot be empty")
+
+    try:
+        result = run_agent(
+            question=request.question,
+            collection_name=request.collection_name,
+            chat_history=request.chat_history,
+        )
+
+        doc_result = await db.execute(
+            select(Document).where(Document.collection_name == request.collection_name)
+        )
+        document = doc_result.scalar_one_or_none()
+
+        if document:
+            db.add(
+                Message(
+                    document_id=document.id,
+                    role="user",
+                    content=request.question,
+                )
+            )
+            db.add(
+                Message(
+                    document_id=document.id,
+                    role="assistant",
+                    content=result["answer"],
+                    route="agent",
+                    sources=[],
+                )
+            )
+
+        return {
+            "answer": result["answer"],
+            "tool_calls": result["tool_calls"],
+            "steps": result["steps"],
+            "route": "agent",
+        }
+
+    except Exception as e:
+        logger.error("Agent chat failed", exc_info=True)
+        raise HTTPException(500, f"Agent failed: {str(e)}")
