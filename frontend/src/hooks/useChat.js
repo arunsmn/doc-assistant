@@ -4,6 +4,7 @@ import {
   sendMessageStream,
   fetchDocuments,
   fetchChatHistory,
+  sendAgentMessage,
 } from "../api/client";
 
 export function useChat() {
@@ -13,6 +14,7 @@ export function useChat() {
   const [isUploading, setIsUploading] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
   const [error, setError] = useState(null);
+  const [isAgentMode, setIsAgentMode] = useState(false);
 
   const tokenQueue = useRef([]);
   const isProcessing = useRef(false);
@@ -59,6 +61,7 @@ export function useChat() {
           content: msg.content,
           route: msg.route,
           sources: msg.sources || [],
+          toolCalls: msg.toolCalls || [],
           timestamp: new Date(msg.timestamp),
         }));
         setMessages(formatted);
@@ -214,15 +217,63 @@ export function useChat() {
     setError(null);
   }, []);
 
+  const handleAgentSend = useCallback(
+    async (question) => {
+      if (!question.trim()) return;
+      if (!activeDocument) {
+        setError("Please upload a document first.");
+        return;
+      }
+
+      const userMessage = {
+        id: Date.now(),
+        role: "user",
+        content: question,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, userMessage]);
+      setIsThinking(true);
+      setError(null);
+
+      try {
+        const result = await sendAgentMessage(
+          question,
+          activeDocument.collectionName,
+          messages,
+        );
+
+        const assistantMessage = {
+          id: Date.now() + 1,
+          role: "assistant",
+          content: result.answer,
+          sources: [],
+          route: "agent",
+          toolCalls: result.tool_calls, // which tools were used
+          steps: result.steps,
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, assistantMessage]);
+      } catch {
+        setError("Agent failed. Please try again.");
+      } finally {
+        setIsThinking(false);
+      }
+    },
+    [activeDocument, messages],
+  );
+
   return {
     documents,
     activeDocument,
     messages,
     isUploading,
     isThinking,
+    isAgentMode,
+    setIsAgentMode,
     error,
     handleUpload,
     handleSend,
+    handleAgentSend,
     switchDocument,
   };
 }

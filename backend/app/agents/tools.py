@@ -93,4 +93,21 @@ def create_tools(collection_name: str):
             logger.error("extract_key_points failed", exc_info=True)
             return f"Key point extraction failed: {str(e)}"
 
-    return [search_document, summarise_document, extract_key_points]
+    @tool
+    def answer_from_knowledge(question: str) -> str:
+        """
+        Signals that this question requires general knowledge not found in the document.
+        Use this when the document does not contain the relevant information.
+        The question will be answered from general knowledge during synthesis.
+        """
+
+        logger.info("Tool called: answer_from_knowledge", extra={"question": question})
+        # Return the question as a signal — synthesis phase handles the actual answer
+        return f"GENERAL_KNOWLEDGE_NEEDED: {question}"
+
+    return [
+        search_document,
+        summarise_document,
+        extract_key_points,
+        answer_from_knowledge,
+    ]

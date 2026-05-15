@@ -1,17 +1,27 @@
 import { useState } from "react";
-import { SendHorizonal } from "lucide-react";
+import { SendHorizonal, Bot, Zap } from "lucide-react";
 
-export default function ChatInput({ onSend, isThinking, disabled }) {
+export default function ChatInput({
+  onSend,
+  onAgentSend,
+  isThinking,
+  disabled,
+  isAgentMode,
+  onToggleAgentMode,
+}) {
   const [value, setValue] = useState("");
 
   const handleSubmit = () => {
     if (!value.trim() || isThinking || disabled) return;
-    onSend(value.trim());
+    if (isAgentMode) {
+      onAgentSend(value.trim());
+    } else {
+      onSend(value.trim());
+    }
     setValue("");
   };
 
   const handleKeyDown = (e) => {
-    // Send on Enter, new line on Shift+Enter
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();
@@ -20,6 +30,27 @@ export default function ChatInput({ onSend, isThinking, disabled }) {
 
   return (
     <div style={styles.container}>
+      {/* Agent mode toggle */}
+      <div style={styles.toggleRow}>
+        <button
+          style={{
+            ...styles.toggleBtn,
+            ...(isAgentMode ? styles.toggleActive : styles.toggleInactive),
+          }}
+          onClick={onToggleAgentMode}
+          disabled={disabled}
+        >
+          <Bot size={14} />
+          <span>Agent mode</span>
+          {isAgentMode && <Zap size={12} />}
+        </button>
+        {isAgentMode && (
+          <span style={styles.agentHint}>
+            Uses multiple tools to research your question
+          </span>
+        )}
+      </div>
+
       <div style={styles.inputRow}>
         <textarea
           style={styles.textarea}
@@ -29,7 +60,9 @@ export default function ChatInput({ onSend, isThinking, disabled }) {
           placeholder={
             disabled
               ? "Upload a document to start chatting..."
-              : "Ask anything about your document..."
+              : isAgentMode
+                ? "Ask a complex question — the agent will reason across tools..."
+                : "Ask anything about your document..."
           }
           disabled={disabled || isThinking}
           rows={1}
@@ -38,6 +71,7 @@ export default function ChatInput({ onSend, isThinking, disabled }) {
           style={{
             ...styles.sendButton,
             opacity: !value.trim() || isThinking || disabled ? 0.4 : 1,
+            background: isAgentMode ? "var(--llm-color)" : "var(--accent)",
           }}
           onClick={handleSubmit}
           disabled={!value.trim() || isThinking || disabled}
@@ -55,6 +89,38 @@ const styles = {
     padding: "16px 24px 20px",
     borderTop: "1px solid var(--border)",
     background: "var(--bg-surface)",
+  },
+  toggleRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    marginBottom: "10px",
+  },
+  toggleBtn: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    padding: "4px 12px",
+    borderRadius: "20px",
+    fontSize: "12px",
+    fontWeight: 500,
+    cursor: "pointer",
+    border: "1px solid",
+    transition: "all 0.2s",
+    background: "transparent",
+  },
+  toggleActive: {
+    color: "var(--llm-color)",
+    borderColor: "var(--llm-color)",
+    background: "rgba(52, 201, 138, 0.1)",
+  },
+  toggleInactive: {
+    color: "var(--text-tertiary)",
+    borderColor: "var(--border)",
+  },
+  agentHint: {
+    fontSize: "11px",
+    color: "var(--text-tertiary)",
   },
   inputRow: {
     display: "flex",
@@ -79,7 +145,6 @@ const styles = {
     overflowY: "auto",
   },
   sendButton: {
-    background: "var(--accent)",
     color: "#000",
     border: "none",
     borderRadius: "8px",
@@ -90,7 +155,7 @@ const styles = {
     justifyContent: "center",
     cursor: "pointer",
     flexShrink: 0,
-    transition: "opacity 0.2s",
+    transition: "all 0.2s",
   },
   hint: {
     marginTop: "8px",

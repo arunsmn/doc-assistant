@@ -122,3 +122,26 @@ export const fetchChatHistory = async (collectionName) => {
   const response = await api.get(`/chat/history/${collectionName}`);
   return response.data;
 };
+
+export const sendAgentMessage = async (
+  question,
+  collectionName,
+  chatHistory,
+) => {
+  const response = await api.post("/chat/agent", {
+    question,
+    collection_name: collectionName,
+    chat_history: chatHistory.reduce((pairs, msg, i, arr) => {
+      if (
+        msg.role === "user" &&
+        arr[i + 1]?.role === "assistant" &&
+        typeof msg.content === "string" &&
+        typeof arr[i + 1]?.content === "string"
+      ) {
+        pairs.push([msg.content, arr[i + 1].content]);
+      }
+      return pairs;
+    }, []),
+  });
+  return response.data;
+};
