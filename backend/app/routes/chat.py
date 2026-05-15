@@ -236,7 +236,8 @@ async def get_history(collection_name: str, db: AsyncSession = Depends(get_db)):
             "role": msg.role,
             "content": msg.content,
             "route": msg.route,
-            "sources": msg.sources or [],
+            "sources": msg.sources or [] if msg.route != "agent" else [],
+            "toolCalls": msg.sources or [] if msg.route == "agent" else [],
             "timestamp": msg.created_at.isoformat(),
         }
         for msg in messages
@@ -285,7 +286,7 @@ async def agent_chat(request: AgentRequest, db: AsyncSession = Depends(get_db)):
                     role="assistant",
                     content=result["answer"],
                     route="agent",
-                    sources=[],
+                    sources=result["tool_calls"],
                 )
             )
 

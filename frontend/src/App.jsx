@@ -10,9 +10,12 @@ export default function App() {
     messages,
     isUploading,
     isThinking,
+    isAgentMode,
+    setIsAgentMode,
     error,
     handleUpload,
     handleSend,
+    handleAgentSend,
     switchDocument,
   } = useChat();
 
@@ -37,7 +40,6 @@ export default function App() {
       />
 
       <div style={styles.main}>
-        {/* Header */}
         <div style={styles.header}>
           <div style={styles.headerTitle}>
             {activeDocument ? activeDocument.filename : "DocMind"}
@@ -50,7 +52,6 @@ export default function App() {
           )}
         </div>
 
-        {/* Error banner */}
         {error && <div style={styles.errorBanner}>⚠ {error}</div>}
 
         <ChatArea
@@ -61,8 +62,11 @@ export default function App() {
 
         <ChatInput
           onSend={handleSend}
+          onAgentSend={handleAgentSend}
           isThinking={isThinking}
           disabled={!activeDocument}
+          isAgentMode={isAgentMode}
+          onToggleAgentMode={() => setIsAgentMode((prev) => !prev)}
         />
       </div>
     </div>
