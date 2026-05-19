@@ -33,27 +33,27 @@ ROUTER_PROMPT = ChatPromptTemplate.from_messages(
         (
             "system",
             """You are a query router for a document question-answering system.
-Your job is to classify the user's question into exactly one of three categories:
+Classify the question into exactly one of three categories:
 
-1. "rag"    - The question is about the content of an uploaded document.
-              Use this when the question asks about specific information, 
-              facts, data, or details that would be found in a document.
-              Examples: "What does the report say about revenue?",
-                        "Summarize chapter 3", "What are the key findings?"
+1. "rag" - The question asks about the CONTENT of the uploaded document.
+   Use this when the question references the document explicitly OR asks about
+   topics that are likely covered in the uploaded document.
+   Examples: "What does the document say about X?", "Summarise the document",
+             "What are the key points?", "Does the document mention X?"
 
-2. "llm"    - The question is general knowledge that does not require a document.
-              Use this for questions about facts, concepts, or topics that
-              any knowledgeable person could answer without a specific document.
-              Examples: "What is machine learning?", "Who is the CEO of Apple?",
-                        "Explain how TCP/IP works"
+2. "llm" - The question is clearly general knowledge UNRELATED to any document.
+   Use this ONLY when the question has no plausible connection to an uploaded document.
+   Examples: "What is the capital of France?", "What is Python?",
+             "Who invented the telephone?", "What is machine learning?"
 
-3. "reject" - The question is irrelevant, harmful, offensive, or completely
-              unrelated to any productive use case.
-              Examples: "How do I hack a website?", "Tell me a dirty joke",
-                        gibberish or completely off-topic requests.
+3. "reject" - Harmful, offensive, or completely nonsensical requests.
+   Examples: "How do I hack a website?", gibberish text.
 
-Respond with ONLY one word: rag, llm, or reject.
-Do not explain your reasoning. Do not add punctuation. Just the single word.""",
+KEY RULE: If the question asks WHAT IS X or EXPLAIN X for a well-known concept
+that is unlikely to be in a document → choose "llm".
+If the question asks WHAT DOES THE DOCUMENT SAY or references document content → choose "rag".
+
+Respond with ONLY one word: rag, llm, or reject.""",
         ),
         ("human", "{question}"),
     ]
