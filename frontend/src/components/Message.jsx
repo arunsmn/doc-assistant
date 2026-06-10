@@ -18,7 +18,7 @@ export default function Message({ message }) {
         justifyContent: isUser ? "flex-end" : "flex-start",
       }}
     >
-      <div style={{ maxWidth: "75%" }}>
+      <div className="message-content">
         {routeInfo && (
           <div style={styles.badgeRow}>
             <span

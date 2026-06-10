@@ -1,13 +1,16 @@
 import os
 import uuid
 import shutil
+import logging
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from app.services.ingestion import ingest_document
+from sqlalchemy import select, delete as sa_delete
+from app.services.ingestion import ingest_document, get_vector_store
 from app.evals.scorer import run_evaluation
 from app.database import get_db
-from app.models import Document, EvalResult
+from app.models import Document, EvalResult, Message
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -74,6 +77,31 @@ async def list_documents(db: AsyncSession = Depends(get_db)):
         }
         for doc in documents
     ]
+
+
+@router.delete("/{collection_name}")
+async def delete_document(collection_name: str, db: AsyncSession = Depends(get_db)):
+    """Deletes a document, its chat history, and its vector collection."""
+    result = await db.execute(
+        select(Document).where(Document.collection_name == collection_name)
+    )
+    document = result.scalar_one_or_none()
+
+    if not document:
+        raise HTTPException(404, "Document not found")
+
+    # Remove dependent rows first — no cascade configured at the DB level
+    await db.execute(sa_delete(Message).where(Message.document_id == document.id))
+    await db.execute(sa_delete(EvalResult).where(EvalResult.document_id == document.id))
+    await db.delete(document)
+
+    # Remove the Chroma collection for this document
+    try:
+        get_vector_store(collection_name).delete_collection()
+    except Exception as e:
+        logger.warning(f"Failed to delete Chroma collection {collection_name}: {e}")
+
+    return {"message": "Document deleted"}
 
 
 @router.post("/evaluate/{collection_name}")

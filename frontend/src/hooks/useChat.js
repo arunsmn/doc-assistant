@@ -5,6 +5,7 @@ import {
   fetchDocuments,
   fetchChatHistory,
   sendAgentMessage,
+  deleteDocument,
 } from "../api/client";
 
 export function useChat() {
@@ -217,6 +218,24 @@ export function useChat() {
     setError(null);
   }, []);
 
+  const handleDeleteDocument = useCallback(
+    async (doc) => {
+      try {
+        await deleteDocument(doc.collectionName);
+        setDocuments((prev) => prev.filter((d) => d.id !== doc.id));
+
+        if (activeDocument?.id === doc.id) {
+          setMessages([]);
+          const remaining = documents.filter((d) => d.id !== doc.id);
+          setActiveDocument(remaining[0] || null);
+        }
+      } catch {
+        setError("Failed to delete document. Please try again.");
+      }
+    },
+    [activeDocument, documents],
+  );
+
   const handleAgentSend = useCallback(
     async (question) => {
       if (!question.trim()) return;
@@ -275,5 +294,6 @@ export function useChat() {
     handleSend,
     handleAgentSend,
     switchDocument,
+    handleDeleteDocument,
   };
 }

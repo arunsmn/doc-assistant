@@ -29,7 +29,7 @@ export default function ChatInput({
   };
 
   return (
-    <div style={styles.container}>
+    <div className="chat-input-container" style={styles.container}>
       {/* Agent mode toggle */}
       <div style={styles.toggleRow}>
         <button
@@ -45,7 +45,7 @@ export default function ChatInput({
           {isAgentMode && <Zap size={12} />}
         </button>
         {isAgentMode && (
-          <span style={styles.agentHint}>
+          <span className="agent-hint" style={styles.agentHint}>
             Uses multiple tools to research your question
           </span>
         )}
@@ -79,7 +79,9 @@ export default function ChatInput({
           <SendHorizonal size={18} />
         </button>
       </div>
-      <p style={styles.hint}>Enter to send · Shift+Enter for new line</p>
+      <p className="input-hint" style={styles.hint}>
+        Enter to send · Shift+Enter for new line
+      </p>
     </div>
   );
 }

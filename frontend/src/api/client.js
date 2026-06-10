@@ -118,6 +118,11 @@ export const fetchDocuments = async () => {
   return response.data;
 };
 
+export const deleteDocument = async (collectionName) => {
+  const response = await api.delete(`/documents/${collectionName}`);
+  return response.data;
+};
+
 export const fetchChatHistory = async (collectionName) => {
   const response = await api.get(`/chat/history/${collectionName}`);
   return response.data;
