@@ -28,7 +28,7 @@ export default function ChatArea({ messages, isThinking, activeDocument }) {
   const showTyping = isThinking && lastMessage?.role === "user";
 
   return (
-    <div ref={containerRef} style={styles.container}>
+    <div ref={containerRef} className="chat-area" style={styles.container}>
       {messages.length === 0 ? (
         <div style={styles.empty}>
           {activeDocument ? (
@@ -50,6 +50,10 @@ export default function ChatArea({ messages, isThinking, activeDocument }) {
               <div style={styles.emptyTitle}>Upload a document to begin</div>
               <div style={styles.emptyHint}>
                 Supports PDF files up to any size
+              </div>
+              <div className="mobile-upload-hint" style={styles.emptyHint}>
+                Tap the menu icon (☰) in the top-left to upload a PDF or
+                browse your chat history
               </div>
             </>
           )}

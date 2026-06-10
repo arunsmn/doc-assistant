@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { Menu } from "lucide-react";
 import Sidebar from "./components/Sidebar";
 import ChatArea from "./components/ChatArea";
 import ChatInput from "./components/ChatInput";
@@ -17,7 +19,10 @@ export default function App() {
     handleSend,
     handleAgentSend,
     switchDocument,
+    handleDeleteDocument,
   } = useChat();
+
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   return (
     <div style={styles.app}>
@@ -35,17 +40,37 @@ export default function App() {
         documents={documents}
         activeDocument={activeDocument}
         onUpload={handleUpload}
-        onSwitch={switchDocument}
+        onSwitch={(doc) => {
+          switchDocument(doc);
+          setIsSidebarOpen(false);
+        }}
         isUploading={isUploading}
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+        onDelete={handleDeleteDocument}
       />
 
+      {isSidebarOpen && (
+        <div
+          className="sidebar-overlay"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       <div style={styles.main}>
-        <div style={styles.header}>
-          <div style={styles.headerTitle}>
+        <div className="app-header" style={styles.header}>
+          <button
+            className="menu-toggle"
+            onClick={() => setIsSidebarOpen(true)}
+            aria-label="Open menu"
+          >
+            <Menu size={18} />
+          </button>
+          <div className="header-title" style={styles.headerTitle}>
             {activeDocument ? activeDocument.filename : "DocMind"}
           </div>
           {activeDocument && (
-            <div style={styles.headerMeta}>
+            <div className="header-meta" style={styles.headerMeta}>
               {activeDocument.pages} pages · {activeDocument.chunks} chunks
               indexed
             </div>

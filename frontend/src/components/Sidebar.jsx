@@ -1,12 +1,15 @@
 import { useRef } from "react";
-import { Upload, FileText, Loader2, Clock } from "lucide-react";
+import { Upload, FileText, Loader2, Clock, X, Trash2 } from "lucide-react";
 
 export default function Sidebar({
   documents,
   activeDocument,
   onUpload,
   onSwitch,
+  onDelete,
   isUploading,
+  isOpen,
+  onClose,
 }) {
   const fileInputRef = useRef(null);
 
@@ -25,8 +28,18 @@ export default function Sidebar({
 
   const handleDragOver = (e) => e.preventDefault();
 
+  const handleDelete = (e, doc) => {
+    e.stopPropagation();
+    if (window.confirm(`Delete "${doc.filename}" and its chat history?`)) {
+      onDelete(doc);
+    }
+  };
+
   return (
-    <aside style={styles.sidebar}>
+    <aside
+      className={`sidebar${isOpen ? " sidebar-open" : ""}`}
+      style={styles.sidebar}
+    >
       {/* Logo / Title */}
       <div style={styles.header}>
         <span style={styles.logoIcon}>⬡</span>
@@ -34,6 +47,14 @@ export default function Sidebar({
           <div style={styles.logoTitle}>DocMind</div>
           <div style={styles.logoSub}>Document Intelligence</div>
         </div>
+        <button
+          className="menu-toggle"
+          style={styles.closeButton}
+          onClick={onClose}
+          aria-label="Close menu"
+        >
+          <X size={18} />
+        </button>
       </div>
 
       <div style={styles.divider} />
@@ -97,6 +118,16 @@ export default function Sidebar({
                   {doc.pages}p · {doc.chunks} chunks
                 </span>
               </div>
+              <span
+                role="button"
+                tabIndex={0}
+                aria-label={`Delete ${doc.filename}`}
+                style={styles.deleteButton}
+                className="doc-delete-btn"
+                onClick={(e) => handleDelete(e, doc)}
+              >
+                <Trash2 size={13} />
+              </span>
             </button>
           ))
         )}
@@ -129,6 +160,9 @@ const styles = {
     display: "flex",
     alignItems: "center",
     gap: "12px",
+  },
+  closeButton: {
+    marginLeft: "auto",
   },
   logoIcon: {
     fontSize: "24px",
@@ -220,6 +254,18 @@ const styles = {
     flexDirection: "column",
     gap: "2px",
     minWidth: 0,
+    flex: 1,
+  },
+  deleteButton: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+    width: "22px",
+    height: "22px",
+    borderRadius: "var(--radius-sm)",
+    color: "var(--text-tertiary)",
+    transition: "color 0.15s, background 0.15s",
   },
   docName: {
     fontSize: "13px",
@@ -228,7 +274,6 @@ const styles = {
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    maxWidth: "180px",
   },
   docMeta: {
     fontSize: "11px",
