@@ -41,24 +41,26 @@ AVAILABLE TOOLS:
 - search_document(query): Search for specific info in the uploaded document
 - summarise_document(): Get a broad overview of the document
 - extract_key_points(topic): Extract key ideas, optionally filtered by topic
-- answer_from_knowledge(question): Answer from general knowledge when document lacks info
+- answer_from_knowledge(question): Answer from general knowledge
 
 QUESTION: {question}
 
-Respond with a JSON array of tool calls in this exact format:
+RULES:
+- ALWAYS call search_document first
+- Only call answer_from_knowledge when:
+  1. The question explicitly asks to compare document content with something external
+  2. The question asks about a topic that directly relates to and supplements
+     what the document covers
+- Do NOT call answer_from_knowledge when:
+  1. The question is completely unrelated to the document's subject matter
+  2. The question is just something the document doesn't happen to cover
+  In these cases, let search_document find nothing and report that.
+- Maximum 2 tool calls
+
+Return ONLY a JSON array:
 [
-  {{"tool": "tool_name", "input": "input_value"}},
   {{"tool": "tool_name", "input": "input_value"}}
-]
-
-Rules:
-- Include 1-3 tool calls maximum
-- For comparison questions → include both search_document AND answer_from_knowledge
-- For document-only questions → use search_document or summarise_document
-- For key points → use extract_key_points
-- Only use answer_from_knowledge when document won't have the answer
-
-Return ONLY the JSON array, nothing else."""
+]"""
 
     plan_response = llm.invoke([HumanMessage(content=planning_prompt)])
 
